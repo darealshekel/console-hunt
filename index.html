@@ -1,0 +1,160 @@
+<!doctype html>
+<html lang="he" dir="rtl">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      name="viewport"
+      content="width=device-width,initial-scale=1,viewport-fit=cover"
+    />
+    <meta name="theme-color" content="#f8f2e3" />
+    <meta
+      name="description"
+      content="מצוד אחר הקונסולה — הרפתקת פלטפורמות מצוירת לנייד. רצים, קופצים, אוספים קונסולות ומנצחים את מלך הקונסולות."
+    />
+    <meta property="og:title" content="מצוד אחר הקונסולה" />
+    <meta
+      property="og:description"
+      content="חמישה שלבים, בוס אחד, ואפס כוונה לחזור בלי קונסולה. משחק מצויר לנייד."
+    />
+    <title>מצוד אחר הקונסולה</title>
+    <link rel="icon" href="assets/icon.svg" type="image/svg+xml" />
+    <link rel="manifest" href="manifest.webmanifest" />
+    <link rel="stylesheet" href="style.css" />
+    <link
+      rel="preload"
+      href="assets/rubik-hebrew.woff2"
+      as="font"
+      type="font/woff2"
+      crossorigin
+    />
+  </head>
+  <body>
+    <main id="app">
+      <canvas
+        id="world"
+        aria-label="עולם המשחק — תנועה וקפיצה באמצעות כפתורי המגע"
+      ></canvas>
+      <div class="paper-grain" aria-hidden="true"></div>
+      <header id="hud" hidden>
+        <button id="pause" class="icon-button" aria-label="השהיית המשחק">
+          <svg viewBox="0 0 24 24"><path d="M8 5v14M16 5v14" /></svg>
+        </button>
+        <div class="level-heading">
+          <span id="level-number">שלב 1 מתוך 5</span
+          ><strong id="level-name">יוצאים לדרך</strong>
+        </div>
+        <div class="hud-stats">
+          <span id="health" aria-label="3 לבבות">♥♥♥</span
+          ><span class="console-count"
+            ><img src="assets/icon.svg" alt="קונסולות" /><b id="coin-count">0</b
+            ><span id="coin-total">/ 30</span></span
+          >
+        </div>
+        <div class="level-progress"><i id="progress-fill"></i></div>
+      </header>
+      <div id="boss-hud" hidden>
+        <strong>מלך הקונסולות</strong>
+        <div><i id="boss-health"></i></div>
+      </div>
+      <div id="toast" role="status" aria-live="polite"></div>
+      <section id="menu" class="menu-screen">
+        <nav class="menu-top">
+          <span class="edition"><i></i> הרפתקה מצוירת לנייד</span
+          ><button
+            id="sound-menu"
+            class="icon-button sound-button"
+            aria-label="הפעלת צלילים"
+            aria-pressed="false"
+          ></button>
+        </nav>
+        <div class="title-block">
+          <p class="eyebrow">כולם מחפשים. אתה מוצא.</p>
+          <h1>
+            מצוד אחר<br /><span>הקונסולה</span
+            ><svg viewBox="0 0 300 16" aria-hidden="true">
+              <path d="M5 9Q145 0 293 8M16 14Q153 5 281 12" />
+            </svg>
+          </h1>
+          <p class="intro">
+            חמישה שלבים. בוס אחד.<br />ואפס כוונה לחזור בלי קונסולה.
+          </p>
+        </div>
+        <div class="hero-space" aria-hidden="true">
+          <span class="hero-note">יאללה, יוצאים לצוד!</span
+          ><span class="sketch-star">✦</span>
+        </div>
+        <div class="menu-bottom">
+          <div class="route-preview" aria-label="5 שלבים ובוס סופי">
+            <span>1</span><i></i><span>2</span><i></i><span>3</span><i></i
+            ><span>4</span><i></i><span>5</span><i></i
+            ><span class="crown">♛</span>
+          </div>
+          <button id="start" class="button primary">
+            <span>יוצאים לדרך</span
+            ><svg viewBox="0 0 24 24"><path d="m15 5-7 7 7 7M8 12h12" /></svg>
+          </button>
+          <div class="menu-links">
+            <button id="levels-button">מפת השלבים</button><span>✧</span
+            ><button id="help-button">איך משחקים?</button>
+          </div>
+          <p class="tiny-note">רק אתם, שתי אצבעות והרבה קונסולות.</p>
+        </div>
+      </section>
+      <div id="controls" hidden aria-label="כפתורי המשחק">
+        <div class="direction-controls" dir="ltr">
+          <button data-control="left" aria-label="תנועה שמאלה">
+            <svg viewBox="0 0 24 24"><path d="m14 5-7 7 7 7" /></svg></button
+          ><button data-control="right" aria-label="תנועה ימינה">
+            <svg viewBox="0 0 24 24"><path d="m10 5 7 7-7 7" /></svg>
+          </button>
+        </div>
+        <div class="action-controls">
+          <button
+            data-control="dash"
+            class="dash-control"
+            aria-label="דאש — זינוק מהיר"
+          >
+            <svg viewBox="0 0 24 24">
+              <path d="m14 3-9 11h7l-2 7 10-12h-7Z" /></svg
+            ><span>דאש</span><i id="dash-ready"></i></button
+          ><button
+            data-control="jump"
+            class="jump-control"
+            aria-label="קפיצה, ולחיצה נוספת לקפיצה כפולה"
+          >
+            <svg viewBox="0 0 24 24"><path d="M12 20V5m-6 7 6-7 6 7" /></svg
+            ><span>קפיצה</span>
+          </button>
+        </div>
+      </div>
+      <section
+        id="overlay"
+        hidden
+        class="overlay"
+        aria-modal="true"
+        role="dialog"
+        aria-labelledby="overlay-title"
+      >
+        <div class="sheet">
+          <span id="overlay-kicker" class="eyebrow"></span>
+          <h2 id="overlay-title"></h2>
+          <div id="overlay-content"></div>
+          <div id="overlay-actions"></div>
+        </div>
+      </section>
+      <section id="desktop-gate" hidden>
+        <img src="assets/icon.svg" alt="" />
+        <p class="eyebrow">הרפתקה שמתחילה בכיס</p>
+        <h2>הקונסולות מחכות<br />לכם בנייד.</h2>
+        <p>פותחים את הקישור בטלפון,<br />והמצוד מתחיל.</p>
+        <button id="copy-link" class="button primary">העתקת הקישור</button
+        ><span>המשחק נבנה למסך מגע.</span>
+      </section>
+      <div id="loading" role="status">
+        <img src="assets/icon.svg" alt="" /><strong>מציירים את ההרפתקה…</strong
+        ><span>עוד רגע יוצאים לדרך.</span>
+      </div>
+    </main>
+    <script type="module" src="src/main.js"></script>
+  </body>
+</html>
