@@ -492,7 +492,7 @@ async function boot() {
         events: handleEvents,
       };
     if ("serviceWorker" in navigator && location.protocol === "https:")
-      navigator.serviceWorker.register("sw.js").catch(() => {});
+      navigator.serviceWorker.register("sw.js?v=6", {updateViaCache: "none"}).catch(() => {});
   } catch {
     $("loading").innerHTML =
       '<strong>הציורים עוד בדרך.</strong><span>בדקו את החיבור ונסו שוב.</span><button class="button primary" style="width:220px">טעינה מחדש</button>';

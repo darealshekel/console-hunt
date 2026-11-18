@@ -1,4 +1,4 @@
-const CACHE = "console-hunt-5";
+const CACHE = "console-hunt-6";
 const FILES = [
   "./",
   "index.html",
@@ -23,7 +23,7 @@ self.addEventListener("install", (event) => {
   event.waitUntil(
     caches
       .open(CACHE)
-      .then((c) => c.addAll(FILES))
+      .then((c) => c.addAll(FILES.map((file) => new Request(file, {cache: "reload"}))))
       .then(() => self.skipWaiting()),
   );
 });
