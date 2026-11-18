@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="he" dir="rtl">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#f8f2e3">
+<title>מצוד אחר הקונסולה</title>
+<body style="margin:0;min-height:100dvh;display:grid;place-items:center;background:#f8f2e3;color:#253d38;font:20px Arial,sans-serif">
+<p>עוד רגע מתחילים… <a href="./">למשחק</a></p>
+<script>
+  (async () => {
+    const destination = new URL('./', location.href);
+    try {
+      const legacy = (await caches.keys()).filter(name => /^console-hunt-[1-5]$/.test(name));
+      if (legacy.length) {
+        const registrations = await navigator.serviceWorker.getRegistrations();
+        await Promise.all(registrations.filter(reg => reg.scope === destination.href).map(reg => reg.unregister()));
+        await Promise.all(legacy.map(name => caches.delete(name)));
+      }
+      const registration = await navigator.serviceWorker.register(new URL('sw.js?v=6', destination), {scope: destination.href, updateViaCache:'none'});
+      const worker = registration.installing || registration.waiting || registration.active;
+      if (worker && worker.state !== 'activated') {
+        await new Promise((resolve, reject) => {
+          const timeout = setTimeout(() => reject(new Error('update timeout')), 25000);
+          worker.addEventListener('statechange', () => {
+            if(worker.state === 'activated') {clearTimeout(timeout); resolve();}
+            if(worker.state === 'redundant') {clearTimeout(timeout); reject(new Error('update failed'));}
+          });
+        });
+      }
+    } catch {}
+    // Only obsolete asset caches are removed; saved game progress is untouched.
+    destination.search = '?v=6';
+    location.replace(destination.href);
+  })();
+</script>
+</body>
+</html>
