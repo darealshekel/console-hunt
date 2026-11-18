@@ -190,4 +190,4 @@ async (page) => {
     realMultitouch: true,
     desktopGate: true,
   };
-};
+}

@@ -791,7 +791,8 @@ body.boss #toast {
     height: 35px;
   }
   .sheet {
-    max-width: 520px;
+    width: min(100%, 620px);
+    max-width: 620px;
     padding: 18px 25px;
   }
   .sheet h2 {
@@ -806,6 +807,19 @@ body.boss #toast {
   }
   .level-row {
     padding: 8px;
+  }
+  .sheet:has(.level-list) {
+    padding: 12px 22px;
+  }
+  .sheet:has(.level-list) h2 {
+    font-size: 30px;
+    margin-bottom: 6px;
+  }
+  .sheet:has(.level-list) #overlay-actions {
+    margin-top: 10px;
+  }
+  .sheet:has(.level-list) .button {
+    min-height: 44px;
   }
   .help-list {
     display: grid;

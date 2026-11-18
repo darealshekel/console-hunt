@@ -1,4 +1,4 @@
-const CACHE = "console-hunt-2";
+const CACHE = "console-hunt-3";
 const FILES = [
   "./",
   "index.html",

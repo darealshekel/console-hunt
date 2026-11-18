@@ -89,6 +89,7 @@ function showOverlay(title, kicker, content, actions) {
     $("overlay-actions").append(b);
   }
   $("overlay").hidden = false;
+  $("overlay").querySelector(".sheet").scrollTop = 0;
   $("controls").hidden = true;
   setTimeout(
     () =>
