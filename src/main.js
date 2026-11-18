@@ -39,8 +39,6 @@ let save = loadSave(),
   lastHud = "";
 const sound = new Sound();
 sound.enabled = save.sound;
-const touchDevice = () =>
-  navigator.maxTouchPoints > 0 || matchMedia("(pointer: coarse)").matches;
 function persist() {
   try {
     localStorage.setItem(KEY, JSON.stringify(save));
@@ -122,7 +120,6 @@ function menu() {
       : "יוצאים לדרך";
 }
 function startLevel(index) {
-  if (!touchDevice()) return;
   sound.unlock();
   closeOverlay();
   game = new Game(index);
@@ -271,16 +268,6 @@ function failed() {
     ],
   );
 }
-async function copyLink() {
-  try {
-    await navigator.clipboard.writeText(location.href.split("?")[0]);
-    toast("הקישור הועתק. שולחים לטלפון ויוצאים לדרך!");
-    $("copy-link").textContent = "הקישור הועתק!";
-    setTimeout(() => ($("copy-link").textContent = "העתקת הקישור"), 2200);
-  } catch {
-    $("copy-link").textContent = "הקישור מופיע בשורת הכתובת";
-  }
-}
 async function share() {
   const url = location.href.split("?")[0];
   if (navigator.share) {
@@ -316,15 +303,35 @@ function handleEvents() {
     if (e.type === "heart") toast("עוד לב. ממשיכים!", 1800);
     if (e.type === "spring") toast("בדיוק בשביל זה יש קפיצים.", 1800);
     if (e.type === "bossWarn")
-      toast("הוא קופץ! זזים הצידה ומתכוננים לקפוץ.", 1800);
+      toast(
+        {
+          slam: "הוא קופץ! זזים מהסימון ואז קופצים מעל הגלים.",
+          throw: "הוא זורק קונסולות! מתכוננים לקפוץ מעליהן.",
+          charge: "הוא מסתער! קפיצה כפולה מעליו!",
+        }[e.attack],
+        2000,
+      );
     if (e.type === "bossStun") {
-      renderer.shake = 7;
+      renderer.shake = e.attack === "throw" ? 0 : 7;
       toast("עכשיו! קפיצה על הראש או דאש עליו!", 2300);
     }
-    if (e.type === "bossHit")
-      toast("זה עבד! נשארו עוד " + game.boss.hp + " פגיעות.", 1800);
+    if (e.type === "bossHit") {
+      renderer.shake = 4;
+      if (save.vibrate) navigator.vibrate?.(20);
+      if (game.boss.hp > 0)
+        toast("זה עבד! נשארו עוד " + game.boss.hp + " פגיעות.", 1800);
+    }
     if (e.type === "complete") results();
-    if (e.type === "won") results(true);
+    if (e.type === "won") {
+      const defeatedGame = game;
+      screen = "victory";
+      clearInput();
+      $("controls").hidden = true;
+      toast("מלך הקונסולות נכנע. המחסן שלנו!", 1500);
+      setTimeout(() => {
+        if (game === defeatedGame && screen === "victory") results(true);
+      }, 650);
+    }
     if (e.type === "failed") failed();
   }
 }
@@ -345,8 +352,29 @@ function updateHud() {
   $("progress-fill").style.width =
     `${clamp((p.x / (game.level.length - 120)) * 100, 0, 100)}%`;
   $("dash-ready").style.height = `${(p.dashCooldown / 1.1) * 100}%`;
-  if (game.boss)
+  if (game.boss) {
     $("boss-health").style.width = `${(game.boss.hp / game.boss.maxHp) * 100}%`;
+    const b = game.boss;
+    const activity =
+      b.reaction > 0
+        ? "פגיעה!"
+        : b.state === "warn"
+          ? {
+              slam: "קפיצה מתקרבת!",
+              throw: "קונסולות בדרך!",
+              charge: "הסתערות — קפיצה כפולה!",
+            }[b.attack]
+          : {
+              wait: "מתכונן למתקפה",
+              jump: "להתרחק ממקום הנחיתה",
+              throw: "לקפוץ מעל הקונסולות",
+              charge: "לקפוץ מעליו!",
+              stunned: "מסוחרר — עכשיו תוקפים!",
+              defeated: "המחסן שלנו!",
+            }[b.state];
+    if ($("boss-action").textContent !== activity)
+      $("boss-action").textContent = activity;
+  }
 }
 function loop(ms) {
   const dt = last ? Math.min((ms - last) / 1000, 0.1) : 0;
@@ -395,7 +423,6 @@ $("pause").onclick = pause;
 $("start").onclick = () => startLevel(save.won ? 0 : save.unlocked);
 $("levels-button").onclick = showLevels;
 $("help-button").onclick = showHelp;
-$("copy-link").onclick = copyLink;
 $("sound-menu").onclick = () => {
   sound.unlock();
   sound.enabled = !sound.enabled;
@@ -418,21 +445,25 @@ window.addEventListener("blur", () => {
 });
 window.addEventListener("resize", () => {
   renderer?.resize();
-  if (!touchDevice() && screen === "playing") pause();
-  $("desktop-gate").hidden = touchDevice();
 });
 setSoundIcon();
 async function boot() {
   try {
-    const art = new Image(),
-      ad = new Image();
-    art.src = "assets/characters.png";
+    const ad = new Image(),
+      heroArt = new Image(),
+      bossArt = new Image();
     ad.src = "assets/level-1-ad.png";
-    await Promise.all([art.decode(), ad.decode(), document.fonts.ready]);
-    renderer = new Renderer($("world"), art, ad);
+    heroArt.src = "assets/hero-animation.png";
+    bossArt.src = "assets/boss-animation.png";
+    await Promise.all([
+      ad.decode(),
+      heroArt.decode(),
+      bossArt.decode(),
+      document.fonts.ready,
+    ]);
+    renderer = new Renderer($("world"), ad, heroArt, bossArt);
     menu();
     $("loading").hidden = true;
-    $("desktop-gate").hidden = touchDevice();
     requestAnimationFrame(loop);
     if (location.hostname === "127.0.0.1" || location.hostname === "localhost")
       window.__gameTest = {
@@ -444,6 +475,12 @@ async function boot() {
         },
         get screen() {
           return screen;
+        },
+        get animation() {
+          return renderer.heroAnimator.pose;
+        },
+        get bossAnimation() {
+          return renderer.bossPose;
         },
         start: startLevel,
         pause,

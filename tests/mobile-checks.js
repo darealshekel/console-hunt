@@ -23,7 +23,7 @@ async (page) => {
       `${name}: start button clipped`,
     );
     expect(
-      await page.locator("#desktop-gate").isHidden(),
+      (await page.locator("#desktop-gate").count()) === 0,
       `${name}: mobile incorrectly blocked`,
     );
     await shot(name);
@@ -154,7 +154,7 @@ async (page) => {
     b.timer = 3;
     b.invulnerable = 0;
     b.x = p.x + 10;
-    b.y = 390;
+    b.y = 520-b.h;
     p.dash = 0.18;
     p.face = 1;
     p.invulnerable = 1;
@@ -179,8 +179,13 @@ async (page) => {
     });
   const tab = await desktop.newPage();
   await tab.goto("http://127.0.0.1:4175");
-  await tab.locator("#desktop-gate").waitFor({ state: "visible" });
-  await tab.screenshot({ path: "output/playwright/desktop-gate.png" });
+  await tab.locator("#loading").waitFor({ state: "hidden" });
+  expect((await tab.locator("#copy-link").count()) === 0, "copy-link gate still exists");
+  await tab.getByRole("button", { name: "יוצאים לדרך", exact: true }).click();
+  expect(await tab.locator("#controls").isVisible(), "browser without touch detection cannot start");
+  await tab.setViewportSize({width:1200,height:720});
+  expect(await tab.evaluate(()=>__gameTest.screen === "playing"), "resize blocks browser without touch detection");
+  await tab.screenshot({ path: "output/playwright/no-device-gate.png" });
   await desktop.close();
   expect(errors.length === 0, errors.join("\n"));
   return {
@@ -188,6 +193,6 @@ async (page) => {
     consoleErrors: errors,
     mobileViewports: ["375×667", "390×844", "844×390"],
     realMultitouch: true,
-    desktopGate: true,
+    startsWithoutTouchDetection: true,
   };
 }

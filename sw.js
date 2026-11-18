@@ -1,14 +1,18 @@
-const CACHE = "console-hunt-3";
+const CACHE = "console-hunt-5";
 const FILES = [
   "./",
   "index.html",
+  "play.html",
   "style.css",
   "src/main.js",
   "src/engine.js",
   "src/levels.js",
   "src/render.js",
   "src/audio.js",
-  "assets/characters.png",
+  "src/hero-animation.js",
+  "src/boss-animation.js",
+  "assets/hero-animation.png",
+  "assets/boss-animation.png",
   "assets/level-1-ad.png",
   "assets/icon.svg",
   "assets/rubik-hebrew.woff2",

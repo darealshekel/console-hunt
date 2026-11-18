@@ -57,6 +57,16 @@ export class Sound {
       case "bossStun":
         this.tone(65, 0.35, "triangle", 0.08);
         break;
+      case "bossWarn":
+        this.tone(220, 0.15, "square", 0.025);
+        this.tone(220, 0.15, "square", 0.025, 0.2);
+        break;
+      case "bossThrow":
+        this.tone(520, 0.16, "triangle", 0.035, 0, 160);
+        break;
+      case "bossCharge":
+        this.tone(100, 0.3, "sawtooth", 0.025, 0, 240);
+        break;
       case "checkpoint":
       case "heart":
         this.tone(523, 0.15);

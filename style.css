@@ -367,13 +367,20 @@ h1 svg {
   transform: translateX(-50%);
   z-index: 3;
   text-align: center;
-  width: 180px;
+  width: 220px;
   background: #f8f2e3ed;
   padding: 7px 12px;
   border-radius: 8px;
 }
 #boss-hud strong {
   font-size: 12px;
+}
+#boss-action {
+  display: block;
+  font-size: 10px;
+  line-height: 1.4;
+  margin-top: 5px;
+  color: var(--teal);
 }
 #boss-hud div {
   height: 7px;
@@ -414,7 +421,7 @@ h1 svg {
   transform: translate(-50%, 0);
 }
 body.boss #toast {
-  top: calc(var(--safe-top) + 140px);
+  top: calc(var(--safe-top) + 158px);
 }
 #controls {
   position: absolute;
@@ -639,40 +646,6 @@ body.boss #toast {
   font-size: 12px;
   color: var(--teal);
 }
-#desktop-gate {
-  position: absolute;
-  inset: 0;
-  z-index: 10;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-direction: column;
-  text-align: center;
-  background: var(--paper);
-  padding: 24px;
-}
-#desktop-gate > img {
-  width: 100px;
-  transform: rotate(-8deg);
-  margin-bottom: 25px;
-}
-#desktop-gate h2 {
-  font-family: Amatic, Rubik, sans-serif;
-  font-size: 64px;
-  margin: 0 0 18px;
-  line-height: 1.05;
-}
-#desktop-gate p {
-  line-height: 1.8;
-}
-#desktop-gate button {
-  width: 260px;
-  margin: 20px 0;
-}
-#desktop-gate > span {
-  font-size: 12px;
-  color: #6e7e70;
-}
 #loading {
   position: absolute;
   inset: 0;
@@ -851,7 +824,7 @@ body.boss #toast {
     top: calc(var(--safe-top) + 64px);
   }
   body.boss #toast {
-    top: calc(var(--safe-top) + 105px);
+    top: calc(var(--safe-top) + 130px);
   }
   #boss-hud {
     top: calc(var(--safe-top) + 60px);

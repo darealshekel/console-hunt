@@ -43,9 +43,9 @@ export class Game {
       index === 5
         ? {
             x: 820,
-            y: 390,
+            y: 366,
             w: 112,
-            h: 130,
+            h: 154,
             hp: 6,
             maxHp: 6,
             state: "wait",
@@ -55,6 +55,14 @@ export class Game {
             invulnerable: 0,
             target: 820,
             phase: 1,
+            attack: "slam",
+            attackIndex: 0,
+            face: -1,
+            reaction: 0,
+            release: 0,
+            shots: 0,
+            shotTimer: 0,
+            targetY: 466,
           }
         : null;
   }
@@ -151,7 +159,11 @@ export class Game {
       if (p.dash > 0) p.vy = 0;
     } else {
       if (p.stun <= 0)
-        p.vx = approach(p.vx, dir * 275, (dir ? 1750 : 2250) * dt);
+        p.vx = approach(
+          p.vx,
+          dir * 275,
+          (dir ? (p.vx * dir < 0 ? 3800 : 2600) : 3200) * dt,
+        );
       p.vy = Math.min(880, p.vy + 1750 * dt);
     }
     const oldY = p.y,
@@ -245,6 +257,7 @@ export class Game {
       v.x += v.vx * dt;
       v.y += v.vy * dt;
       if (v.kind === "box") v.vy += 1100 * dt;
+      if (v.kind === "console") v.vy += 380 * dt;
       if (v.life > 0 && overlap(p, v)) {
         this.damage();
         v.life = 0;
@@ -267,33 +280,84 @@ export class Game {
       this.emit("complete");
     }
   }
+  recoverBoss(duration) {
+    const b = this.boss;
+    b.state = "stunned";
+    b.timer = duration;
+    b.vx = 0;
+    b.vy = 0;
+    b.y = 520 - b.h;
+    this.emit("bossStun", { attack: b.attack });
+  }
+  throwConsole() {
+    const b = this.boss;
+    const x = b.x + b.w / 2 + b.face * 65,
+      y = b.y + 58;
+    const flight = clamp(Math.abs(b.target + 42 - x) / 310, 0.3, 1.5);
+    const vy = clamp(
+      (b.targetY - y - 0.5 * 380 * flight * flight) / flight,
+      -300,
+      140,
+    );
+    this.projectiles.push({
+      kind: "console",
+      x,
+      y,
+      w: 24,
+      h: 30,
+      vx: b.face * (b.phase === 2 ? 340 : 310),
+      vy,
+      life: 3,
+    });
+    b.release = 0.17;
+    this.emit("bossThrow");
+  }
   updateBoss(dt, oldY) {
     const b = this.boss,
       p = this.player;
     if (b.hp <= 0) return;
     b.timer -= dt;
     b.invulnerable = Math.max(0, b.invulnerable - dt);
+    b.reaction = Math.max(0, b.reaction - dt);
+    b.release = Math.max(0, b.release - dt);
     b.phase = b.hp <= 3 ? 2 : 1;
-    if (b.state === "wait" && b.timer <= 0) {
-      b.state = "warn";
-      b.timer = 1.05;
-      b.target = clamp(p.x - 42, 100, this.level.length - 200);
-      this.emit("bossWarn");
+    if (b.state === "wait") {
+      const distance = p.x + p.w / 2 - (b.x + b.w / 2);
+      if (Math.abs(distance) > 8) b.face = Math.sign(distance);
+      b.vx = Math.abs(distance) > 190 ? b.face * (b.phase === 2 ? 65 : 45) : 0;
+      b.x = clamp(b.x + b.vx * dt, 50, this.level.length - 180);
+      if (b.timer <= 0) {
+        b.attack = ["slam", "throw", "charge"][b.attackIndex++ % 3];
+        b.state = "warn";
+        b.vx = 0;
+        b.timer = b.attack === "throw" ? 0.8 : 0.95;
+        b.target = clamp(p.x - 42, 100, this.level.length - 200);
+        b.targetY = p.y + 24;
+        this.emit("bossWarn", { attack: b.attack });
+      }
     } else if (b.state === "warn" && b.timer <= 0) {
-      b.state = "jump";
-      b.vy = -700;
-      b.vx = (b.target - b.x) / 0.8;
-      b.timer = 2;
+      if (b.attack === "slam") {
+        b.state = "jump";
+        b.vy = -700;
+        b.vx = (b.target - b.x) / 0.8;
+        b.timer = 2;
+      } else if (b.attack === "throw") {
+        b.state = "throw";
+        b.timer = b.phase === 2 ? 0.85 : 0.65;
+        b.shots = 0;
+        b.shotTimer = 0;
+      } else {
+        b.state = "charge";
+        b.timer = 0.85;
+        b.vx = b.face * (b.phase === 2 ? 510 : 450);
+        this.emit("bossCharge");
+      }
     } else if (b.state === "jump") {
       b.x = clamp(b.x + b.vx * dt, 50, this.level.length - 180);
       b.y += b.vy * dt;
       b.vy += 1800 * dt;
-      if (b.y >= 390) {
-        b.y = 390;
-        b.state = "stunned";
-        b.timer = b.phase === 2 ? 2.2 : 2.8;
-        b.vx = 0;
-        this.emit("bossStun");
+      if (b.y >= 520 - b.h) {
+        this.recoverBoss(b.phase === 2 ? 2.2 : 2.8);
         this.burst(b.x + 50, 520, "#d68d79", 18);
         for (const sign of [-1, 1])
           this.projectiles.push({
@@ -319,6 +383,21 @@ export class Game {
               life: 4,
             });
       }
+    } else if (b.state === "throw") {
+      b.shotTimer -= dt;
+      if (b.shotTimer <= 0 && b.shots < (b.phase === 2 ? 3 : 2)) {
+        this.throwConsole();
+        b.shots++;
+        b.shotTimer = 0.22;
+      }
+      if (b.timer <= 0) this.recoverBoss(b.phase === 2 ? 1.6 : 1.9);
+    } else if (b.state === "charge") {
+      const nextX = b.x + b.vx * dt;
+      b.x = clamp(nextX, 50, this.level.length - 180);
+      if (b.timer <= 0 || nextX !== b.x) {
+        this.recoverBoss(2.1);
+        this.burst(b.x + b.w / 2, 514, "#d68d79", 16);
+      }
     } else if (b.state === "stunned" && b.timer <= 0) {
       b.state = "wait";
       b.timer = b.phase === 2 ? 0.65 : 1.25;
@@ -331,12 +410,18 @@ export class Game {
       ) {
         b.hp--;
         b.invulnerable = 0.9;
+        b.reaction = 0.3;
+        b.x = clamp(b.x + p.face * 12, 50, this.level.length - 180);
+        b.timer = Math.max(b.timer, 0.55);
         p.vy = -540;
         p.invulnerable = 1.1;
         p.jumps = 1;
         this.burst(b.x + 50, b.y, "#e9b653", 18);
         this.emit("bossHit");
         if (b.hp === 0) {
+          b.state = "defeated";
+          b.vx = 0;
+          this.projectiles = [];
           this.mode = "won";
           this.emit("won");
         }

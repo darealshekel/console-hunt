@@ -1,4 +1,6 @@
 import { clamp } from "./engine.js";
+import { HERO_FRAMES, HeroAnimator } from "./hero-animation.js";
+import { BOSS_FRAMES, bossPose } from "./boss-animation.js";
 const INK = "#293e38",
   PAPER = "#f8f2e3";
 const noise = (n) => {
@@ -6,11 +8,13 @@ const noise = (n) => {
   return v - Math.floor(v);
 };
 export class Renderer {
-  constructor(canvas, art, ad) {
+  constructor(canvas, ad, heroArt, bossArt) {
     this.canvas = canvas;
     this.ctx = canvas.getContext("2d", { alpha: false });
-    this.art = art;
     this.ad = ad;
+    this.heroArt = heroArt;
+    this.bossArt = bossArt;
+    this.heroAnimator = new HeroAnimator();
     this.camera = { x: 0, y: 0 };
     this.shake = 0;
     this.reduced = matchMedia("(prefers-reduced-motion: reduce)").matches;
@@ -27,6 +31,7 @@ export class Renderer {
     this.vh = this.landscape ? 480 : (this.h / this.w) * 390;
   }
   reset() {
+    this.heroAnimator.reset();
     this.camera.x = 0;
     this.camera.y = 520 - this.vh * 0.7;
   }
@@ -129,22 +134,45 @@ export class Renderer {
     }
     this.line(pts, color, 0.7, true, color);
   }
-  sprite(type, x, feet, height, face = 1, frame = 0, alpha = 1) {
+  animatedHero(x, feet, height, face, pose, alpha = 1) {
     const c = this.ctx,
-      rect =
-        type === "hero"
-          ? frame
-            ? [918, 18, 435, 484]
-            : [267, 6, 268, 500]
-          : frame
-            ? [897, 512, 524, 508]
-            : [94, 512, 631, 508];
-    const width = (height * rect[2]) / rect[3];
+      frame = HERO_FRAMES[pose.frame],
+      scale = height / 314;
     c.save();
     c.globalAlpha = alpha;
-    c.translate(x, feet);
-    if (face < 0) c.scale(-1, 1);
-    c.drawImage(this.art, ...rect, -width / 2, -height, width, height);
+    c.translate(x, feet + pose.bob);
+    c.scale(face, 1);
+    c.rotate(pose.tilt);
+    c.scale(pose.scaleX, pose.scaleY);
+    c.drawImage(
+      this.heroArt,
+      ...frame.rect,
+      -frame.anchor[0] * scale,
+      -frame.anchor[1] * scale,
+      frame.rect[2] * scale,
+      frame.rect[3] * scale,
+    );
+    c.restore();
+  }
+  animatedBoss(b, time) {
+    const c = this.ctx,
+      pose = bossPose(b, time, this.reduced),
+      frame = BOSS_FRAMES[pose.frame],
+      scale = 170 / 253;
+    this.bossPose = pose;
+    c.save();
+    c.translate(b.x + b.w / 2, b.y + b.h + pose.bob);
+    c.scale(b.face * frame.face, pose.scaleY);
+    c.rotate(pose.tilt);
+    c.globalAlpha = b.invulnerable > 0 && Math.sin(time * 35) > 0.3 ? 0.6 : 1;
+    c.drawImage(
+      this.bossArt,
+      ...frame.rect,
+      -frame.anchor[0] * scale,
+      -frame.anchor[1] * scale,
+      frame.rect[2] * scale,
+      frame.rect[3] * scale,
+    );
     c.restore();
   }
   cloud(x, y, s = 1, color = "#fffaf0b0") {
@@ -758,7 +786,10 @@ export class Renderer {
         c.save();
         c.globalAlpha = 0.3 + Math.sin(t * 15) * 0.12;
         c.fillStyle = "#e16659";
-        c.fillRect(b.target - 15, 515, b.w + 30, 6);
+        if (b.attack === "charge") {
+          const end = b.x + b.w / 2 + b.face * 330;
+          c.fillRect(Math.min(b.x + b.w / 2, end), 509, 330, 10);
+        } else c.fillRect(b.target - 15, 515, b.w + 30, 6);
         c.restore();
         this.line(
           [
@@ -771,20 +802,12 @@ export class Renderer {
         this.ellipse(b.target + 56, 501, 2.5, 2.5, "#ba4d4a");
       }
       this.ellipse(b.x + b.w / 2, 520, b.w * 0.6, 7, "#263c3723");
-      this.sprite(
-        "boss",
-        b.x + b.w / 2,
-        b.y + b.h,
-        170,
-        1,
-        b.state === "jump" || b.state === "warn",
-        b.invulnerable > 0 && Math.sin(t * 35) > 0.3 ? 0.55 : 1,
-      );
+      this.animatedBoss(b, t);
       if (b.state === "stunned")
         for (let i = 0; i < 3; i++)
           this.star(
             b.x + 25 + i * 30,
-            b.y - 43 + Math.sin(t * 5 + i) * 7,
+            b.y - 22 + Math.sin(t * 5 + i) * 7,
             7,
             "#dcaa46",
           );
@@ -803,6 +826,8 @@ export class Renderer {
           true,
           "#dfb78688",
         );
+      } else if (v.kind === "console") {
+        this.console(v.x + v.w / 2, v.y + v.h / 2, 25, t * 8 * Math.sign(v.vx));
       } else {
         this.line(
           [
@@ -838,14 +863,13 @@ export class Renderer {
           3 - i * 0.5,
         );
     }
-    const run = Math.abs(p.vx) > 25;
-    this.sprite(
-      "hero",
+    const pose = this.heroAnimator.update(p, t, this.reduced);
+    this.animatedHero(
       p.x + p.w / 2,
-      p.y + p.h + (p.grounded && run ? Math.sin(t * 18) * 1.8 : 0),
+      p.y + p.h,
       77,
       p.face,
-      run ? 1 : 0,
+      pose,
       p.invulnerable > 0 && Math.sin(t * 35) > 0 ? 0.35 : 1,
     );
     if (p.jumps === 2 && !p.grounded && p.vy < 0)
@@ -904,7 +928,14 @@ export class Renderer {
       1.5,
     );
     this.ellipse(x, ground + 4, heroH * 0.32, 9, "#8d9e7025");
-    this.sprite("hero", x, ground, heroH, 1, 1);
+    const menuPhase = this.reduced ? 0 : (time * 1.8) % 1;
+    this.animatedHero(x, ground, heroH, 1, {
+      frame: 4 + Math.floor(menuPhase * 6),
+      tilt: 0.03,
+      scaleX: 1,
+      scaleY: 1,
+      bob: this.reduced ? 0 : -Math.abs(Math.sin(menuPhase * Math.PI * 2)) * 3,
+    });
     const b = this.reduced ? 0 : Math.sin(time * 2) * 4;
     this.console(sw * 0.27, ground - heroH * 0.75 + b, land ? 26 : 29, -0.15);
     this.console(sw * 0.73, ground - heroH * 0.84 - b, land ? 28 : 32, 0.14);
