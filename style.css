@@ -442,6 +442,10 @@ body.boss #toast {
 }
 .action-controls {
   direction: ltr;
+  display: grid;
+  grid-template-columns: 64px 77px;
+  grid-template-rows: 54px 77px;
+  gap: 8px;
 }
 .direction-controls button {
   width: 61px;
@@ -473,6 +477,8 @@ body.boss #toast {
   font-size: 10px;
 }
 .jump-control {
+  grid-column: 2;
+  grid-row: 2;
   width: 77px;
   height: 77px;
   border-radius: 50% 46% 49% 45%;
@@ -483,6 +489,9 @@ body.boss #toast {
   height: 30px;
 }
 .dash-control {
+  grid-column: 2;
+  grid-row: 1;
+  justify-self: end;
   width: 54px;
   height: 54px;
   border-radius: 50% 45% 47% 48%;
@@ -492,7 +501,8 @@ body.boss #toast {
 .dash-control svg {
   height: 24px;
 }
-.dash-control i {
+.dash-control i,
+.attack-control i {
   position: absolute;
   bottom: 0;
   left: 0;
@@ -500,6 +510,23 @@ body.boss #toast {
   height: 0;
   background: #f8f2e3bb;
   pointer-events: none;
+}
+.attack-control {
+  grid-column: 1;
+  grid-row: 2;
+  width: 64px;
+  height: 64px;
+  border-radius: 46% 49% 44% 50%;
+  background: var(--teal);
+  color: var(--paper);
+  overflow: hidden;
+}
+.attack-control i {
+  background: #102e285c;
+}
+#controls .attack-control.pressed {
+  background: #294e4c;
+  color: #fff;
 }
 #controls button.pressed {
   transform: translateY(3px) scale(0.97);

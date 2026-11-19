@@ -37,6 +37,15 @@ export class Sound {
   }
   play(event) {
     switch (event) {
+      case "punch":
+        this.tone(370, 0.09, "triangle", 0.03, 0, 130);
+        break;
+      case "punchHit":
+        this.tone(110, 0.11, "square", 0.035, 0, 65);
+        break;
+      case "punchBlocked":
+        this.tone(720, 0.07, "triangle", 0.025, 0, 400);
+        break;
       case "coin":
         this.tone(880, 0.1, "sine", 0.04);
         this.tone(1320, 0.13, "sine", 0.035, 0.07);

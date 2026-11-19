@@ -2,6 +2,7 @@ import { Game, clamp } from "./engine.js";
 import { THEMES } from "./levels.js";
 import { Renderer } from "./render.js";
 import { Sound } from "./audio.js";
+import { PUNCH } from "./combat.js";
 const $ = (id) => document.getElementById(id),
   KEY = "console-hunt-v1";
 const fresh = () => ({
@@ -32,11 +33,18 @@ let save = loadSave(),
   game = null,
   renderer = null,
   screen = "menu",
-  input = { left: false, right: false, jump: false, dash: false },
+  input = {
+    left: false,
+    right: false,
+    jump: false,
+    dash: false,
+    attack: false,
+  },
   last = 0,
   accumulator = 0,
   toastTimer = 0,
-  lastHud = "";
+  lastHud = "",
+  lastBlockHint = -100;
 const sound = new Sound();
 sound.enabled = save.sound;
 function persist() {
@@ -135,6 +143,7 @@ function startLevel(index) {
     index === 5 ? "הקרב האחרון" : `שלב ${index + 1} מתוך 5`;
   toast(THEMES[index].tip, index === 5 ? 6500 : 4300);
   lastHud = "";
+  lastBlockHint = -100;
   updateHud();
 }
 function resume() {
@@ -188,7 +197,7 @@ function showHelp() {
   showOverlay(
     "שתי אצבעות, וזה שלכם",
     "איך משחקים?",
-    `<ul class="help-list"><li><b>↔</b><span>מחזיקים את החצים כדי לרוץ שמאלה או ימינה.</span></li><li><b>↑</b><span>נוגעים בקפיצה. נגיעה נוספת באוויר נותנת קפיצה כפולה.</span></li><li><b>ϟ</b><span>דאש נותן זינוק מהיר — וגם מעיף את השומרים מהדרך.</span></li><li><b>♥</b><span>אוספים קונסולות, נזהרים מקוצים, ותופסים דגל כדי לשמור נקודת חזרה.</span></li></ul><p>על שומרים אפשר לקפוץ מלמעלה.<br>מול הבוס, מחכים לנחיתה שלו — ואז תוקפים כשהוא מסוחרר.</p>`,
+    `<ul class="help-list"><li><b>↔</b><span>מחזיקים את החצים כדי לרוץ שמאלה או ימינה.</span></li><li><b>↑</b><span>נוגעים בקפיצה. נגיעה נוספת באוויר נותנת קפיצה כפולה.</span></li><li><b>ϟ</b><span>דאש נותן זינוק מהיר — וגם מעיף את השומרים מהדרך.</span></li><li><b>אגרוף</b><span>נוגעים כדי לתת אגרוף. מחזיקים לרצף מכות, גם בתנועה או באוויר.</span></li><li><b>♥</b><span>אוספים קונסולות, נזהרים מקוצים, ותופסים דגל כדי לשמור נקודת חזרה.</span></li></ul><p>על שומרים אפשר לקפוץ מלמעלה.<br>מול הבוס, מתחמקים מהמתקפה — ואז מתקרבים ונותנים אגרוף כשהוא מסוחרר.</p>`,
     [
       {
         label: "הבנתי, יוצאים לדרך",
@@ -302,6 +311,11 @@ function handleEvents() {
       toast("נקודת חזרה נשמרה. אפשר לקחת קצת סיכונים.", 2500);
     if (e.type === "heart") toast("עוד לב. ממשיכים!", 1800);
     if (e.type === "spring") toast("בדיוק בשביל זה יש קפיצים.", 1800);
+    if (e.type === "punchHit" && save.vibrate) navigator.vibrate?.(12);
+    if (e.type === "punchBlocked" && game.time - lastBlockHint > 1.5) {
+      lastBlockHint = game.time;
+      toast("הוא מגן על עצמו. נותנים אגרוף כשהוא מסוחרר!", 1800);
+    }
     if (e.type === "bossWarn")
       toast(
         {
@@ -313,7 +327,7 @@ function handleEvents() {
       );
     if (e.type === "bossStun") {
       renderer.shake = e.attack === "throw" ? 0 : 7;
-      toast("עכשיו! קפיצה על הראש או דאש עליו!", 2300);
+      toast("עכשיו! מתקרבים ונותנים אגרוף!", 2300);
     }
     if (e.type === "bossHit") {
       renderer.shake = 4;
@@ -352,6 +366,8 @@ function updateHud() {
   $("progress-fill").style.width =
     `${clamp((p.x / (game.level.length - 120)) * 100, 0, 100)}%`;
   $("dash-ready").style.height = `${(p.dashCooldown / 1.1) * 100}%`;
+  $("attack-ready").style.height =
+    `${(p.attackCooldown / PUNCH.cooldown) * 100}%`;
   if (game.boss) {
     $("boss-health").style.width = `${(game.boss.hp / game.boss.maxHp) * 100}%`;
     const b = game.boss;
@@ -451,17 +467,20 @@ async function boot() {
   try {
     const ad = new Image(),
       heroArt = new Image(),
-      bossArt = new Image();
+      bossArt = new Image(),
+      punchArt = new Image();
     ad.src = "assets/level-1-ad.png";
     heroArt.src = "assets/hero-animation.png";
     bossArt.src = "assets/boss-animation.png";
+    punchArt.src = "assets/hero-punch.png";
     await Promise.all([
       ad.decode(),
       heroArt.decode(),
       bossArt.decode(),
+      punchArt.decode(),
       document.fonts.ready,
     ]);
-    renderer = new Renderer($("world"), ad, heroArt, bossArt);
+    renderer = new Renderer($("world"), ad, heroArt, bossArt, punchArt);
     menu();
     $("loading").hidden = true;
     requestAnimationFrame(loop);
@@ -492,7 +511,9 @@ async function boot() {
         events: handleEvents,
       };
     if ("serviceWorker" in navigator && location.protocol === "https:")
-      navigator.serviceWorker.register("sw.js?v=6", {updateViaCache: "none"}).catch(() => {});
+      navigator.serviceWorker
+        .register("sw.js?v=7", { updateViaCache: "none" })
+        .catch(() => {});
   } catch {
     $("loading").innerHTML =
       '<strong>הציורים עוד בדרך.</strong><span>בדקו את החיבור ונסו שוב.</span><button class="button primary" style="width:220px">טעינה מחדש</button>';

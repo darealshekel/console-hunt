@@ -1,4 +1,4 @@
-const CACHE = "console-hunt-6";
+const CACHE = "console-hunt-7";
 const FILES = [
   "./",
   "index.html",
@@ -6,12 +6,14 @@ const FILES = [
   "style.css",
   "src/main.js",
   "src/engine.js",
+  "src/combat.js",
   "src/levels.js",
   "src/render.js",
   "src/audio.js",
   "src/hero-animation.js",
   "src/boss-animation.js",
   "assets/hero-animation.png",
+  "assets/hero-punch.png",
   "assets/boss-animation.png",
   "assets/level-1-ad.png",
   "assets/icon.svg",
@@ -23,7 +25,9 @@ self.addEventListener("install", (event) => {
   event.waitUntil(
     caches
       .open(CACHE)
-      .then((c) => c.addAll(FILES.map((file) => new Request(file, {cache: "reload"}))))
+      .then((c) =>
+        c.addAll(FILES.map((file) => new Request(file, { cache: "reload" }))),
+      )
       .then(() => self.skipWaiting()),
   );
 });

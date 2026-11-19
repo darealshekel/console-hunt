@@ -1,6 +1,7 @@
 import { clamp } from "./engine.js";
-import { HERO_FRAMES, HeroAnimator } from "./hero-animation.js";
+import { HERO_FRAMES, PUNCH_FRAMES, HeroAnimator } from "./hero-animation.js";
 import { BOSS_FRAMES, bossPose } from "./boss-animation.js";
+import { punchHitbox, projectilePreview } from "./combat.js";
 const INK = "#293e38",
   PAPER = "#f8f2e3";
 const noise = (n) => {
@@ -8,12 +9,13 @@ const noise = (n) => {
   return v - Math.floor(v);
 };
 export class Renderer {
-  constructor(canvas, ad, heroArt, bossArt) {
+  constructor(canvas, ad, heroArt, bossArt, punchArt) {
     this.canvas = canvas;
     this.ctx = canvas.getContext("2d", { alpha: false });
     this.ad = ad;
     this.heroArt = heroArt;
     this.bossArt = bossArt;
+    this.punchArt = punchArt;
     this.heroAnimator = new HeroAnimator();
     this.camera = { x: 0, y: 0 };
     this.shake = 0;
@@ -21,6 +23,7 @@ export class Renderer {
     this.resize();
   }
   resize() {
+    const previousHeight = this.vh;
     this.w = this.canvas.clientWidth;
     this.h = this.canvas.clientHeight;
     this.dpr = Math.min(devicePixelRatio || 1, 2);
@@ -29,6 +32,8 @@ export class Renderer {
     this.landscape = this.w > this.h;
     this.vw = this.landscape ? (this.w / this.h) * 480 : 390;
     this.vh = this.landscape ? 480 : (this.h / this.w) * 390;
+    if (previousHeight !== undefined)
+      this.camera.y += (previousHeight - this.vh) * 0.7;
   }
   reset() {
     this.heroAnimator.reset();
@@ -136,8 +141,9 @@ export class Renderer {
   }
   animatedHero(x, feet, height, face, pose, alpha = 1) {
     const c = this.ctx,
-      frame = HERO_FRAMES[pose.frame],
-      scale = height / 314;
+      punching = pose.state === "punch",
+      frame = (punching ? PUNCH_FRAMES : HERO_FRAMES)[pose.frame],
+      scale = height / (punching ? 452 : 314);
     c.save();
     c.globalAlpha = alpha;
     c.translate(x, feet + pose.bob);
@@ -145,7 +151,7 @@ export class Renderer {
     c.rotate(pose.tilt);
     c.scale(pose.scaleX, pose.scaleY);
     c.drawImage(
-      this.heroArt,
+      punching ? this.punchArt : this.heroArt,
       ...frame.rect,
       -frame.anchor[0] * scale,
       -frame.anchor[1] * scale,
@@ -173,6 +179,126 @@ export class Renderer {
       frame.rect[2] * scale,
       frame.rect[3] * scale,
     );
+    c.restore();
+  }
+  bossWarning(b, arenaLength, time) {
+    const c = this.ctx,
+      plan = b.plan;
+    if (!plan) return;
+    c.save();
+    c.strokeStyle = "#ba4d4a";
+    c.fillStyle = "#ba4d4a";
+    c.lineWidth = 1.5;
+    c.font = "10px Rubik";
+    c.textAlign = "center";
+    c.direction = "rtl";
+    if (plan.attack === "throw") {
+      const points = projectilePreview(plan.projectile);
+      const trace = () => {
+        c.beginPath();
+        points.forEach((p, i) => (i ? c.lineTo(p.x, p.y) : c.moveTo(p.x, p.y)));
+      };
+      trace();
+      c.globalAlpha = 0.09;
+      c.lineWidth = plan.projectile.h;
+      c.stroke();
+      trace();
+      c.globalAlpha = 0.65;
+      c.lineWidth = 2;
+      c.setLineDash([6, 6]);
+      c.stroke();
+      c.setLineDash([]);
+      for (let i = 12; i < points.length; i += 22) {
+        const p = points[i],
+          next = points[Math.min(i + 1, points.length - 1)];
+        c.save();
+        c.translate(p.x, p.y);
+        c.rotate(Math.atan2(next.y - p.y, next.x - p.x));
+        this.line(
+          [
+            [-5, -4],
+            [0, 0],
+            [-5, 4],
+          ],
+          "#ba4d4a",
+          1.6,
+        );
+        c.restore();
+      }
+      const end = points.at(-1);
+      c.globalAlpha = 0.7;
+      c.strokeRect(
+        end.x - plan.projectile.w / 2,
+        end.y - plan.projectile.h / 2,
+        plan.projectile.w,
+        plan.projectile.h,
+      );
+      c.fillText("זריקה", points[0].x, points[0].y - 24);
+    } else {
+      const zone = { ...plan.zone };
+      if (plan.attack === "charge" && b.state === "charge") {
+        zone.x = Math.min(b.x, plan.toX);
+        zone.w = Math.abs(plan.toX - b.x) + b.w;
+      }
+      c.globalAlpha = 0.07;
+      c.fillRect(zone.x, zone.y, zone.w, zone.h);
+      c.globalAlpha = 0.6;
+      c.setLineDash([5, 5]);
+      c.strokeRect(zone.x, zone.y, zone.w, zone.h);
+      c.setLineDash([]);
+      c.globalAlpha = 0.45 + 0.12 * Math.sin(time * 12);
+      c.fillRect(zone.x, 515, zone.w, 5);
+      c.globalAlpha = 0.85;
+      c.fillText(
+        plan.attack === "slam" ? "נחיתה" : "הסתערות",
+        zone.x + zone.w / 2,
+        zone.y - 8,
+      );
+      if (plan.attack === "slam") {
+        const center = plan.toX + b.w / 2;
+        this.line(
+          [
+            [center - 6, zone.y + 9],
+            [center, zone.y + 17],
+            [center + 6, zone.y + 9],
+          ],
+          "#ba4d4a",
+          2,
+        );
+        const reach = plan.waveSpeed * plan.waveLife;
+        const left = Math.max(0, center - 12.5 - reach),
+          right = Math.min(arenaLength, center + 12.5 + reach);
+        c.fillStyle = "#b68135";
+        c.globalAlpha = 0.09;
+        c.fillRect(left, 493, right - left, 27);
+        c.globalAlpha = 0.65;
+        for (const sign of [-1, 1])
+          for (let offset = 70; offset < reach; offset += 90) {
+            const x = center + sign * offset;
+            if (x > 0 && x < arenaLength)
+              this.line(
+                [
+                  [x - sign * 6, 499],
+                  [x, 505],
+                  [x - sign * 6, 511],
+                ],
+                "#b68135",
+                1.4,
+              );
+          }
+      } else {
+        const x = plan.toX + b.w / 2;
+        this.line(
+          [
+            [x - plan.face * 9, 499],
+            [x, 507],
+            [x - plan.face * 9, 515],
+          ],
+          "#ba4d4a",
+          2,
+        );
+      }
+    }
     c.restore();
   }
   cloud(x, y, s = 1, color = "#fffaf0b0") {
@@ -782,25 +908,8 @@ export class Renderer {
           27,
           ((i % 3) - 1) * 0.2,
         );
-      if (b.state === "warn") {
-        c.save();
-        c.globalAlpha = 0.3 + Math.sin(t * 15) * 0.12;
-        c.fillStyle = "#e16659";
-        if (b.attack === "charge") {
-          const end = b.x + b.w / 2 + b.face * 330;
-          c.fillRect(Math.min(b.x + b.w / 2, end), 509, 330, 10);
-        } else c.fillRect(b.target - 15, 515, b.w + 30, 6);
-        c.restore();
-        this.line(
-          [
-            [b.target + 56, 469],
-            [b.target + 56, 491],
-          ],
-          "#ba4d4a",
-          3,
-        );
-        this.ellipse(b.target + 56, 501, 2.5, 2.5, "#ba4d4a");
-      }
+      if (["warn", "jump", "charge", "throw"].includes(b.state))
+        this.bossWarning(b, L.length, t);
       this.ellipse(b.x + b.w / 2, 520, b.w * 0.6, 7, "#263c3723");
       this.animatedBoss(b, t);
       if (b.state === "stunned")
@@ -813,6 +922,22 @@ export class Renderer {
           );
     }
     for (const v of game.projectiles) {
+      if (v.kind === "box" && v.y + v.h < 493) {
+        c.save();
+        c.globalAlpha = 0.4;
+        c.fillStyle = "#ba4d4a";
+        c.fillRect(v.x, 515, v.w, 5);
+        c.setLineDash([3, 6]);
+        this.line(
+          [
+            [v.x + v.w / 2, Math.max(v.y + v.h, 460)],
+            [v.x + v.w / 2, 510],
+          ],
+          "#ba4d4a",
+          1,
+        );
+        c.restore();
+      }
       if (v.kind === "wave") {
         this.line(
           [
@@ -868,10 +993,23 @@ export class Renderer {
       p.x + p.w / 2,
       p.y + p.h,
       77,
-      p.face,
+      p.attackTime >= 0 ? p.attackFace : p.face,
       pose,
       p.invulnerable > 0 && Math.sin(t * 35) > 0 ? 0.35 : 1,
     );
+    const fist = punchHitbox(p);
+    if (fist) {
+      const x = p.attackFace > 0 ? fist.x + fist.w : fist.x;
+      this.line(
+        [
+          [x - p.attackFace * 8, fist.y + 5],
+          [x + p.attackFace * 3, fist.y + 16],
+          [x - p.attackFace * 5, fist.y + 27],
+        ],
+        "#f2bd57",
+        2.5,
+      );
+    }
     if (p.jumps === 2 && !p.grounded && p.vy < 0)
       this.ellipse(p.x + 14, p.y + 60, 16, 3, "#faf1d160");
     for (const particle of game.particles) {

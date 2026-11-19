@@ -16,6 +16,12 @@ export const HERO_FRAMES = [
   { rect: [768, 683, 384, 341], anchor: [188, 310] },
   { rect: [1152, 683, 384, 341], anchor: [174, 325] },
 ];
+export const PUNCH_FRAMES = [
+  { rect: [0, 0, 768, 512], anchor: [370, 474] },
+  { rect: [768, 0, 768, 512], anchor: [365, 474] },
+  { rect: [0, 512, 768, 512], anchor: [365, 473] },
+  { rect: [768, 512, 768, 512], anchor: [365, 474] },
+];
 
 export class HeroAnimator {
   constructor() {
@@ -62,6 +68,16 @@ export class HeroAnimator {
       pose.state = "hurt";
       pose.frame = 10;
       pose.tilt = -0.15;
+    } else if (p.attackTime >= 0) {
+      pose.state = "punch";
+      pose.frame =
+        p.attackTime < 0.04
+          ? 0
+          : p.attackTime < 0.08
+            ? 1
+            : p.attackTime < 0.17
+              ? 2
+              : 3;
     } else if (p.dash > 0) {
       pose.state = "dash";
       pose.frame = 3;

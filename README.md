@@ -9,8 +9,9 @@
 - מחזיקים את חצי הכיוון כדי לרוץ.
 - מחזיקים קפיצה לקפיצה גבוהה; נוגעים שוב באוויר לקפיצה כפולה.
 - דאש מזניק קדימה ופוגע בשומרים. מחכים שהכפתור ייטען לפני הדאש הבא.
+- כפתור **אגרוף** פוגע באויבים מולכם. אפשר להחזיק לרצף מכות, גם תוך כדי ריצה או קפיצה.
 - קופצים מעל קוצים ובורות, ואוספים לבבות ודגלי נקודת חזרה.
-- מול הבוס נזהרים מקפיצות, מקונסולות נזרקות ומהסתערות. מחכים לאזהרה, מתחמקים ותוקפים כשהוא מסוחרר.
+- מול הבוס נזהרים מקפיצות, מקונסולות נזרקות ומהסתערות. מחכים לאזהרה, מתחמקים ומתקרבים לתת אגרוף כשהוא מסוחרר. בזמן מתקפה הוא מגן על עצמו.
 
 המשחק תומך במצב אנכי ואופקי, בכמה אצבעות בו־זמנית ובשמירה אוטומטית של שלבים שהושלמו. מעבר לאפליקציה אחרת משהה את המשחק. הוא נבנה לנייד, אבל נפתח ישירות גם כשהדפדפן אינו מזהה את מסך המגע. אפשר להוסיף למסך הבית; אחרי הטעינה הראשונה המשחק זמין גם ללא חיבור.
 
@@ -19,6 +20,8 @@
 Five courses: beach, rooftops, dunes, night harbor, and warehouse. The sixth scene is a two-phase boss encounter. The first course includes the supplied advertisement as a background billboard. Character illustrations were generated from the supplied reference photographs; the original photographs are not included.
 
 The hero has a twelve-pose sprite sheet with a distance-driven six-frame run cycle, takeoff, airborne, falling, landing, and idle poses. Acceleration, braking, and reversal respond to input independently of animation timing. The boss has twelve poses and cycles through telegraphed jump slams, console throws, and charges, with approach movement, recovery windows, hit recoil, and a defeat pose. Phase two speeds up charges and increases thrown consoles.
+
+Punching adds four attack poses, a forward hitbox, windup, active frames, recovery, a cooldown, and hit/guard feedback. Each boss attack locks a shared plan used by both simulation and its warning: an exact slam footprint, a wall-clamped swept charge area, or the actual ballistic console trajectory. Falling crates also mark their own horizontal landing footprint.
 
 Canvas 2D, plain JavaScript modules, Pointer Events, and original synthesized Web Audio. No runtime packages, accounts, analytics, backend, or external asset requests. Progress stays in this browser's local storage. Clearing browser storage resets progress.
 
